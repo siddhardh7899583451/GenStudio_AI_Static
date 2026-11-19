@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GenStudio AI — Interactive Generative Studio</title>
+  <meta name="description" content="Client-side Generative AI studio: pattern synthesis, autoregressive sequence generation, and generative vs discriminative concepts. Pure HTML/CSS/JS for Hugging Face Static Spaces." />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo">GS</div>
+        <div>
+          <h1>GenStudio AI</h1>
+          <p class="tagline">Interactive Generative Studio · Client-Side</p>
+        </div>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="synth" role="tab" aria-selected="true">Pattern Synthesis</button>
+        <button class="tab" data-tab="ar" role="tab" aria-selected="false">Autoregressive</button>
+        <button class="tab" data-tab="concepts" role="tab" aria-selected="false">Concepts</button>
+      </nav>
+    </header>
+
+    <main class="main">
+      <!-- ==================== PATTERN SYNTHESIS ==================== -->
+      <section id="panel-synth" class="panel active" role="tabpanel">
+        <div class="panel-header">
+          <h2>Class-Conditional Pattern Synthesis</h2>
+          <p class="subtitle">
+            Generate synthetic 8×8 grayscale patterns by sampling from class-conditional Gaussians
+            <code>P(image | digit)</code>. An independent “judge” scores how digit-like each sample looks.
+          </p>
+        </div>
+
+        <div class="controls-card">
+          <div class="control-row">
+            <label>
+              Target Digit
+              <select id="synth-digit">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+              </select>
+            </label>
+            <label>
+              Samples
+              <input type="number" id="synth-n" min="1" max="16" value="8" />
+            </label>
+            <label>
+              Noise σ
+              <input type="range" id="synth-noise" min="0.2" max="3.5" step="0.1" value="1.2" />
+              <span id="synth-noise-val" class="val">1.2</span>
+            </label>
+            <label>
+              Seed
+              <input type="number" id="synth-seed" value="42" />
+            </label>
+            <button id="btn-generate-synth" class="btn primary">Generate Patterns</button>
+          </div>
+        </div>
+
+        <div class="metrics-row" id="synth-metrics" hidden>
+          <div class="metric">
+            <span class="metric-label">Judge Agreement</span>
+            <span class="metric-value" id="metric-agreement">—</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Target Digit</span>
+            <span class="metric-value" id="metric-target">—</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Samples Drawn</span>
+            <span class="metric-value" id="metric-n">—</span>
+          </div>
+          <div class="metric wide">
+            <span class="metric-label">Insight</span>
+            <span class="metric-text" id="metric-insight">—</span>
+          </div>
+        </div>
+
+        <div class="canvas-grid-wrap">
+          <div id="synth-grid" class="synth-grid"></div>
+        </div>
+
+        <div class="info-card">
+          <h3>How it works</h3>
+          <p>
+            Each digit class has a learned mean pattern (template) and isotropic Gaussian noise.
+            New samples are drawn as <code>x ~ N(μ_digit, σ²I)</code>, clipped to a valid intensity range,
+            and rendered as 8×8 pixel grids. A simple template-matching “judge” measures agreement —
+            the same educational idea as training a class-conditional generative model and evaluating
+            with an independent classifier.
+          </p>
+        </div>
+      </section>
+
+      <!-- ==================== AUTOREGRESSIVE ==================== -->
+      <section id="panel-ar" class="panel" role="tabpanel" hidden>
+        <div class="panel-header">
+          <h2>Autoregressive Sequence Generation</h2>
+          <p class="subtitle">
+            Miniature language model: factorizes <code>P(x) = ∏ P(x<sub>t</sub> | x<sub>&lt;t</sub>)</code>
+            and samples one character at a time with temperature control.
+          </p>
+        </div>
+
+        <div class="ar-layout">
+          <div class="ar-left">
+            <div class="controls-card">
+              <label class="full">
+                Seed / Prompt (optional)
+                <input type="text" id="ar-prompt" placeholder="e.g. the generative" maxlength="40" />
+              </label>
+              <div class="control-row">
+                <label>
+                  Max Length
+                  <input type="number" id="ar-length" min="10" max="200" value="80" />
+                </label>
+                <label>
+                  Temperature
+                  <input type="range" id="ar-temp" min="0.1" max="2.0" step="0.05" value="0.9" />
+                  <span id="ar-temp-val" class="val">0.9</span>
+                </label>
+                <label>
+                  n-gram
+                  <select id="ar-ngram">
+                    <option value="2" selected>Bigram (n=2)</option>
+                    <option value="3">Trigram (n=3)</option>
+                  </select>
+                </label>
+              </div>
+              <div class="btn-row">
+                <button id="btn-ar-generate" class="btn primary">Generate Sequence</button>
+                <button id="btn-ar-step" class="btn secondary">Step Once</button>
+                <button id="btn-ar-reset" class="btn ghost">Reset</button>
+              </div>
+            </div>
+
+            <div class="output-card">
+              <div class="output-header">
+                <span>Generated Text</span>
+                <span id="ar-status" class="status">Ready</span>
+              </div>
+              <pre id="ar-output" class="ar-output" aria-live="polite"></pre>
+            </div>
+
+            <div class="info-card compact">
+              <h3>Temperature &amp; Sampling</h3>
+              <p>
+                Temperature scales the logits before the softmax.
+                Low T → peaked (more deterministic), High T → flatter (more creative / random).
+                This is the same principle used in large language models when decoding.
+              </p>
+            </div>
+          </div>
+
+          <div class="ar-right">
+            <div class="chart-card">
+              <h3>Next-Token Distribution</h3>
+              <canvas id="ar-chart" height="220"></canvas>
+            </div>
+            <div class="chart-card">
+              <h3>Generation Progress</h3>
+              <canvas id="ar-progress-chart" height="120"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== CONCEPTS ==================== -->
+      <section id="panel-concepts" class="panel" role="tabpanel" hidden>
+        <div class="panel-header">
+          <h2>Generative vs Discriminative</h2>
+          <p class="subtitle">
+            Core ideas behind generative modeling, density estimation, and why joint structure matters.
+          </p>
+        </div>
+
+        <div class="concepts-grid">
+          <article class="concept-card">
+            <div class="concept-icon">G</div>
+            <h3>Generative Models</h3>
+            <p>
+              Learn the joint distribution <code>P(X, Y)</code> or the density <code>P(X | Y)</code>.
+              Once trained they can <strong>sample</strong> new data that looks like the training distribution.
+              Examples: Gaussians, VAEs, diffusion models, autoregressive LMs.
+            </p>
+          </article>
+
+          <article class="concept-card">
+            <div class="concept-icon">D</div>
+            <h3>Discriminative Models</h3>
+            <p>
+              Learn the conditional <code>P(Y | X)</code> directly (decision boundaries).
+              Excellent at classification, but they do not model how the data itself is distributed
+              and cannot generate realistic new samples.
+            </p>
+          </article>
+
+          <article class="concept-card">
+            <div class="concept-icon">AR</div>
+            <h3>Autoregressive Factorization</h3>
+            <p>
+              Any joint can be written as a product of conditionals:
+              <code>P(x<sub>1</sub>…x<sub>T</sub>) = ∏ P(x<sub>t</sub> | x<sub>1</sub>…x<sub>t−1</sub>)</code>.
+              Language models (and pixel-by-pixel image models) exploit this to generate sequences
+              one token at a time.
+            </p>
+          </article>
+
+          <article class="concept-card">
+            <div class="concept-icon">Σ</div>
+            <h3>Why Covariance Matters</h3>
+            <p>
+              Independent feature models (product of marginals) miss correlations.
+              A full covariance / joint generative model captures the “shape” of the data
+              and produces more realistic samples. This is the structure &amp; dependency principle.
+            </p>
+          </article>
+        </div>
+
+        <div class="demo-2d">
+          <h3>Live 2D Density Sketch</h3>
+          <p class="subtitle">Two isotropic Gaussians (class 0 &amp; 1). Click “Sample” to draw points from the generative model.</p>
+          <div class="demo-controls">
+            <button id="btn-2d-sample" class="btn primary">Sample Points</button>
+            <button id="btn-2d-clear" class="btn ghost">Clear</button>
+            <label>
+              Class
+              <select id="demo-class">
+                <option value="0">Class 0</option>
+                <option value="1">Class 1</option>
+                <option value="mix">Mixture</option>
+              </select>
+            </label>
+          </div>
+          <canvas id="demo-canvas" width="640" height="360"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>GenStudio AI · Pure client-side educational demo inspired by generative image synthesis &amp; autoregressive modeling concepts.</p>
+    </footer>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
